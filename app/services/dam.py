@@ -1,13 +1,12 @@
-from __future__ import annotations
-
+import asyncio
 import hashlib
 import hmac
 import json
-import queue
-import threading
+import logging
+import sqlite3
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 from fastapi import Request
@@ -19,9 +18,8 @@ from .audit import get_logger
 from .geo import resolve_ip_geolocation
 
 logger = get_logger()
-_stream_queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=5000)
-_worker_thread: threading.Thread | None = None
-_worker_stop = threading.Event()
+_stream_queue: Optional[asyncio.Queue[dict[str, Any]]] = None
+_worker_task: Optional[asyncio.Task] = None
 
 
 ALERT_ACTIONS = {"unauthorized_access", "download", "share_download", "brute_force_detected"}
@@ -83,22 +81,18 @@ def extract_request_context(request: Request | None) -> dict[str, str | None]:
 
 
 def start_stream_worker() -> None:
-    global _worker_thread
-    if _worker_thread and _worker_thread.is_alive():
-        return
-    _worker_stop.clear()
-    _worker_thread = threading.Thread(target=_stream_worker_loop, name="dam-stream-worker", daemon=True)
-    _worker_thread.start()
+    global _worker_task, _stream_queue
+    if _stream_queue is None:
+        _stream_queue = asyncio.Queue(maxsize=10000)
+    if _worker_task is None:
+        _worker_task = asyncio.create_task(_stream_worker_loop())
 
 
 def stop_stream_worker() -> None:
-    if not _worker_thread:
-        return
-    _worker_stop.set()
-    try:
+    global _worker_task, _stream_queue
+    if _worker_task and _stream_queue:
         _stream_queue.put_nowait({"stop": True})
-    except queue.Full:
-        pass
+        _worker_task = None
 
 
 def _mark_stream_status(event_id: str, streamed: bool, error: str | None) -> None:
@@ -109,34 +103,94 @@ def _mark_stream_status(event_id: str, streamed: bool, error: str | None) -> Non
         )
 
 
-def _stream_worker_loop() -> None:
+async def _stream_worker_loop() -> None:
+    """Sequential background worker for DB writes and streaming."""
+    logger.info("dam_stream_worker_started (Async)")
     settings = get_settings()
-    while not _worker_stop.is_set():
+    if _stream_queue is None:
+        return
+    while True:
         try:
-            event = _stream_queue.get(timeout=1)
-        except queue.Empty:
-            continue
+            event = await _stream_queue.get()
+        except Exception:
+            break
+            
         if event.get("stop"):
+            _stream_queue.task_done()
             break
 
         event_id = event.get("event_id")
+        
+        # INSERT INTO DATABASE SEQUENTIALLY
+        try:
+            with get_db() as conn:
+                previous_row = conn.execute("SELECT event_hash FROM dam_events ORDER BY id DESC LIMIT 1").fetchone()
+                previous_hash = previous_row["event_hash"] if previous_row else ""
+                
+                canonical = _canonical_payload(event)
+                event_hash = hashlib.sha256(f"{previous_hash}|{canonical}".encode("utf-8")).hexdigest()
+                signature = _hmac_sign(event_hash)
+                
+                event["previous_hash"] = previous_hash
+                event["event_hash"] = event_hash
+                event["signature"] = signature
+                
+                conn.execute(
+                    """
+                    INSERT INTO dam_events (
+                        event_id, event_type, severity, actor_user_id, actor_email, source_ip,
+                        device_id, geo_country, geo_city, file_id, file_name, file_path,
+                        action, status, message, metadata_json, created_at,
+                        previous_hash, event_hash, signature, streamed
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    """,
+                    (
+                        event_id, event["event_type"], event["severity"], event["actor_user_id"],
+                        event["actor_email"], event["source_ip"], event["device_id"],
+                        event["geo_country"], event["geo_city"], event["file_id"],
+                        event["file_name"], event["file_path"], event["action"],
+                        event["status"], event["message"], json.dumps(event.get("metadata", {}), sort_keys=True),
+                        event["created_at"], previous_hash, event_hash, signature
+                    ),
+                )
+        except Exception as e:
+            logger.error("Failed to insert dam_event id=%s: %s", event_id, e)
+
         try:
             _dispatch_alert_if_needed(event)
+            
+            # SIEM Rule Engine execution
+            try:
+                from .siem_engine import process_event_siem
+                await process_event_siem(event)
+            except Exception as e:
+                logger.error("SIEM engine error: %s", e)
+
+            # Push live to SOC Dashboard
+            try:
+                from ..routers.ws_alerts import broadcaster
+                await broadcaster.broadcast({
+                    "type": "alert",
+                    **event
+                })
+            except Exception as e:
+                logger.error("WebSocket broadcast failed: %s", e)
+            
             if settings.log_stream_url:
                 if not settings.log_stream_url.startswith("https://"):
                     raise ValueError("LOG_STREAM_URL must use https://")
                 headers = {"Content-Type": "application/json"}
                 if settings.log_stream_auth_token:
                     headers["Authorization"] = f"Bearer {settings.log_stream_auth_token}"
-                with httpx.Client(timeout=5.0, verify=settings.log_stream_verify_tls) as client:
-                    response = client.post(settings.log_stream_url, json=event, headers=headers)
+                async with httpx.AsyncClient(timeout=5.0, verify=settings.log_stream_verify_tls) as client:
+                    response = await client.post(settings.log_stream_url, json=event, headers=headers)
                     response.raise_for_status()
-            _mark_stream_status(event_id, True, None)
+            
         except Exception as exc:
             logger.warning("stream_event_failed event_id=%s error=%s", event_id, exc)
-            _mark_stream_status(event_id, False, str(exc))
         finally:
             _stream_queue.task_done()
+
 
 
 def _dispatch_alert_if_needed(event: dict[str, Any]) -> None:
@@ -184,9 +238,11 @@ def _dispatch_alert_if_needed(event: dict[str, Any]) -> None:
 
 
 def _queue_event_for_stream(event: dict[str, Any]) -> None:
+    if _stream_queue is None:
+        return
     try:
         _stream_queue.put_nowait(event)
-    except queue.Full:
+    except asyncio.QueueFull:
         logger.warning("dam_stream_queue_full dropped_event_id=%s", event.get("event_id"))
 
 
@@ -272,116 +328,56 @@ def record_event(
         "created_at": created_at,
     }
 
-    with get_db() as conn:
-        previous_row = conn.execute("SELECT event_hash FROM dam_events ORDER BY id DESC LIMIT 1").fetchone()
-        previous_hash = previous_row["event_hash"] if previous_row else ""
-        canonical = _canonical_payload(base_payload)
-        event_hash = hashlib.sha256(f"{previous_hash}|{canonical}".encode("utf-8")).hexdigest()
-        signature = _hmac_sign(event_hash)
-        event_id = str(uuid.uuid4())
-        conn.execute(
-            """
-            INSERT INTO dam_events (
-                event_id, event_type, severity, actor_user_id, actor_email, source_ip,
-                device_id, geo_country, geo_city, file_id, file_name, file_path,
-                action, status, message, metadata_json, created_at,
-                previous_hash, event_hash, signature, streamed
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-            """,
-            (
-                event_id,
-                event_type,
-                severity.lower(),
-                actor_user_id,
-                actor_email,
-                context["ip"],
-                context["device_id"],
-                geo.get("country"),
-                geo.get("city"),
-                file_id,
-                file_name,
-                file_path,
-                action,
-                status,
-                message,
-                json.dumps(metadata, sort_keys=True),
-                created_at,
-                previous_hash,
-                event_hash,
-                signature,
-            ),
-        )
-
-        anomaly, anomaly_reason = _detect_anomaly(
-            conn,
-            actor_user_id=actor_user_id,
-            source_ip=context["ip"],
-            geo_country=geo.get("country"),
-            event_hour=datetime.now(timezone.utc).hour,
-        )
-        if anomaly:
-            anomaly_payload = {
-                "event_type": "anomaly_detection",
-                "severity": "medium",
-                "actor_user_id": actor_user_id,
-                "actor_email": actor_email,
-                "source_ip": context["ip"],
-                "device_id": context["device_id"],
-                "geo_country": geo.get("country"),
-                "geo_city": geo.get("city"),
-                "file_id": file_id,
-                "file_name": file_name,
-                "file_path": file_path,
-                "action": "anomaly_detected",
-                "status": "suspicious",
-                "message": f"Anomaly detected: {anomaly_reason}",
-                "metadata": {"reason": anomaly_reason},
-                "created_at": created_at,
-            }
-            anomaly_canonical = _canonical_payload(anomaly_payload)
-            anomaly_hash = hashlib.sha256(f"{event_hash}|{anomaly_canonical}".encode("utf-8")).hexdigest()
-            anomaly_signature = _hmac_sign(anomaly_hash)
-            conn.execute(
-                """
-                INSERT INTO dam_events (
-                    event_id, event_type, severity, actor_user_id, actor_email, source_ip,
-                    device_id, geo_country, geo_city, file_id, file_name, file_path,
-                    action, status, message, metadata_json, created_at,
-                    previous_hash, event_hash, signature, streamed
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-                """,
-                (
-                    str(uuid.uuid4()),
-                    "anomaly_detection",
-                    "medium",
-                    actor_user_id,
-                    actor_email,
-                    context["ip"],
-                    context["device_id"],
-                    geo.get("country"),
-                    geo.get("city"),
-                    file_id,
-                    file_name,
-                    file_path,
-                    "anomaly_detected",
-                    "suspicious",
-                    f"Anomaly detected: {anomaly_reason}",
-                    json.dumps({"reason": anomaly_reason}, sort_keys=True),
-                    created_at,
-                    event_hash,
-                    anomaly_hash,
-                    anomaly_signature,
-                ),
-            )
-
+    # DB INSERT and hashing logic have been moved to _stream_worker_loop
+    event_id = str(uuid.uuid4())
     event = {
         "event_id": event_id,
         **base_payload,
-        "previous_hash": previous_hash,
-        "event_hash": event_hash,
-        "signature": signature,
+        "previous_hash": "",
+        "event_hash": "",
+        "signature": "",
     }
     _queue_event_for_stream(event)
+
+    # Broadcast to all connected WebSocket clients (SOC dashboard)
+    try:
+        from ..routers.ws_alerts import broadcaster
+        import asyncio
+
+        ws_payload = {
+            "type": "alert",
+            "event_id": event_id,
+            "event_type": event_type,
+            "severity": severity.lower(),
+            "action": action,
+            "status": status,
+            "message": message,
+            "actor_email": actor_email,
+            "actor_user_id": actor_user_id,
+            "source_ip": context["ip"],
+            "geo_country": geo.get("country"),
+            "geo_city": geo.get("city"),
+            "file_id": file_id,
+            "file_name": file_name,
+            "created_at": created_at,
+            "metadata": metadata,
+        }
+
+        # Run async broadcast safely from synchronous context
+        loop = None
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            pass
+
+        if loop and loop.is_running():
+            asyncio.ensure_future(broadcaster.broadcast(ws_payload))
+        else:
+            # Fallback: run in new event loop
+            asyncio.run(broadcaster.broadcast(ws_payload))
+    except Exception as _ws_err:
+        logger.debug("ws_broadcast_skipped reason=%s", _ws_err)
+
     return event
 
 

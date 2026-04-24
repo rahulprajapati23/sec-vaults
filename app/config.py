@@ -18,6 +18,7 @@ class Settings:
     jwt_algorithm: str
     access_token_expire_minutes: int
     master_key: bytes
+    database_url: str
     database_path: Path
     storage_path: Path
     max_upload_mb: int
@@ -60,6 +61,7 @@ class Settings:
     keycloak_client_secret: str
     keycloak_admin_client_id: str
     keycloak_admin_client_secret: str
+    virustotal_api_key: str
 
 
 
@@ -114,6 +116,7 @@ def get_settings() -> Settings:
         jwt_algorithm=os.getenv("JWT_ALGORITHM", "HS256"),
         access_token_expire_minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440")),
         master_key=_load_master_key(master_key_value),
+        database_url=os.getenv("DATABASE_URL", "").strip(),
         database_path=(root / os.getenv("DATABASE_PATH", "data/app.db")).resolve(),
         storage_path=(root / os.getenv("STORAGE_PATH", "data/storage")).resolve(),
         max_upload_mb=int(os.getenv("MAX_UPLOAD_MB", "10")),
@@ -132,7 +135,7 @@ def get_settings() -> Settings:
         smtp_host=os.getenv("SMTP_HOST", "").strip(),
         smtp_port=int(os.getenv("SMTP_PORT", "587")),
         smtp_user=os.getenv("SMTP_USER", "").strip(),
-        smtp_password=os.getenv("SMTP_PASSWORD", "").strip(),
+        smtp_password=os.getenv("SMTP_PASSWORD", "").strip().replace(" ", ""),
         smtp_sender=os.getenv("SMTP_SENDER", "").strip(),
         smtp_starttls=_to_bool(os.getenv("SMTP_STARTTLS", "true"), True),
         admin_alert_emails=_parse_csv(os.getenv("ADMIN_ALERT_EMAILS", "")),
@@ -156,4 +159,5 @@ def get_settings() -> Settings:
         keycloak_client_secret=os.getenv("KEYCLOAK_CLIENT_SECRET", "").strip(),
         keycloak_admin_client_id=os.getenv("KEYCLOAK_ADMIN_CLIENT_ID", "").strip(),
         keycloak_admin_client_secret=os.getenv("KEYCLOAK_ADMIN_CLIENT_SECRET", "").strip(),
+        virustotal_api_key=os.getenv("VIRUSTOTAL_API_KEY", "").strip(),
     )

@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: sec-vault-backend
+    env: docker
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sec-vault-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: MASTER_KEY
+        value: "generate_this_locally_and_paste_here"
+      - key: GEOLOCATION_ENABLED
+        value: "false"
+
+databases:
+  - name: sec-vault-db
+    plan: free
+    region: oregon
