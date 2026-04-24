@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Secure Data Storage</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .container { max-width: 400px; margin: 50px auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .error { color: red; margin-top: 10px; }
+        .info { color: #0066cc; margin-top: 10px; }
+        .step { text-align: center; margin: 20px 0; color: #666; }
+        .step h3 { margin: 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="text-align: center;">Create Account</h1>
+        
+        <div class="step">
+            <h3>Step 1 of 2: Verify Email</h3>
+            <p>Enter your email to receive a verification code</p>
+        </div>
+
+        {% if error %}
+            <div class="error">⚠️ {{ error }}</div>
+        {% endif %}
+
+        <form method="POST" action="/auth/email-otp-register">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    required 
+                    placeholder="you@example.com"
+                    autofocus
+                >
+            </div>
+
+            <button type="submit">Send Verification Code</button>
+        </form>
+
+        <div class="info">
+            ℹ️ A 6-digit code will be sent to your email address. You'll use this to verify your email and create your account.
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+            Already have an account? <a href="/auth/login">Login here</a>
+        </div>
+    </div>
+</body>
+</html>

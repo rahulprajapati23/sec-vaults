@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify OTP - Secure Data Storage</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .container { max-width: 400px; margin: 50px auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .error { color: red; margin-top: 10px; }
+        .info { color: #0066cc; margin-top: 10px; }
+        .step { text-align: center; margin: 20px 0; color: #666; }
+        .step h3 { margin: 0; }
+        .timer { color: #ff6600; font-weight: bold; }
+        .otp-input { 
+            font-size: 24px; 
+            letter-spacing: 10px; 
+            text-align: center;
+            font-weight: bold;
+        }
+        .resend-link { text-align: center; margin-top: 15px; }
+        .resend-link a { color: #007bff; text-decoration: none; }
+        .resend-link a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="text-align: center;">Verify Email</h1>
+        
+        <div class="step">
+            <h3>Step 2 of 2: Verify & Set Password</h3>
+            <p>Enter the 6-digit code sent to your email</p>
+        </div>
+
+        {% if error %}
+            <div class="error">⚠️ {{ error }}</div>
+        {% endif %}
+
+        {% if message %}
+            <div style="background: #d4edda; color: #155724; padding: 12px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #c3e6cb;">
+                ✓ {{ message }}
+            </div>
+        {% endif %}
+
+        <form method="POST" action="/auth/verify-otp-register" onsubmit="return validateForm()">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    required 
+                    value="{{ email or '' }}"
+                    readonly
+                    style="background-color: #f5f5f5;"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="otp">Verification Code</label>
+                <input 
+                    type="text" 
+                    id="otp" 
+                    name="otp" 
+                    required 
+                    placeholder="000000"
+                    class="otp-input"
+                    maxlength="6"
+                    pattern="\d{6}"
+                    autofocus
+                    inputmode="numeric"
+                >
+                <small style="color: #666;">Expires in: <span class="timer" id="timer">10:00</span></small>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Create Password</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    required 
+                    placeholder="Minimum 8 characters"
+                    minlength="8"
+                >
+                <small style="color: #666;">Min. 8 characters recommended</small>
+            </div>
+
+            <button type="submit">Create Account & Login</button>
+        </form>
+
+        <div class="resend-link">
+            <a href="#" onclick="resendOTP('{{ email }}')">Didn't receive code? Resend</a>
+        </div>
+
+        <div class="info">
+            ℹ️ The verification code is valid for 10 minutes. If it expires, you can request a new one.
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="/auth/register-form">← Back to Email Entry</a>
+        </div>
+    </div>
+
+    <script>
+        function validateForm() {
+            const otp = document.getElementById('otp').value;
+            if (!/^\d{6}$/.test(otp)) {
+                alert('Please enter a valid 6-digit code');
+                return false;
+            }
+            const password = document.getElementById('password').value;
+            if (password.length < 8) {
+                alert('Password must be at least 8 characters');
+                return false;
+            }
+            return true;
+        }
+
+        function resendOTP(email) {
+            if (!email) {
+                alert('Email not found. Please go back and enter your email.');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('email', email);
+            
+            fetch('/auth/email-otp-register', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.message) {
+                    alert('New verification code sent! Check your email.');
+                    startTimer();
+                } else {
+                    alert('Failed to resend code. Try again later.');
+                }
+            })
+            .catch(err => alert('Error: ' + err));
+        }
+
+        function startTimer() {
+            let seconds = 600; // 10 minutes
+            const timerEl = document.getElementById('timer');
+            
+            setInterval(() => {
+                seconds--;
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                timerEl.textContent = 
+                    String(mins).padStart(2, '0') + ':' + 
+                    String(secs).padStart(2, '0');
+                
+                if (seconds <= 0) {
+                    timerEl.style.color = 'red';
+                    timerEl.textContent = 'EXPIRED';
+                    document.getElementById('otp').disabled = true;
+                }
+            }, 1000);
+        }
+
+        // Start timer on page load
+        startTimer();
+
+        // Auto-advance to next field after 6 digits
+        document.getElementById('otp').addEventListener('input', function(e) {
+            if (this.value.length === 6) {
+                document.getElementById('password').focus();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ title or 'Secure File Storage System' }}</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <header class="topbar">
+      <a class="brand" href="/dashboard">Secure Vault</a>
+      <nav>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/upload">Upload</a>
+        <form action="/auth/logout" method="post" class="inline-form">
+          <button type="submit" class="link-button">Logout</button>
+        </form>
+      </nav>
+    </header>
+    <main>
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
