@@ -1,0 +1,62 @@
+{
+  "realm": "sec-vault",
+  "enabled": true,
+  "displayName": "Secure File Vault - Enterprise",
+  "rememberMe": true,
+  "verifyEmail": true,
+  "loginWithEmailAllowed": true,
+  "registrationAllowed": true,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername(true) and passwordHistory(3)",
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyInitialCounter": 0,
+  "otpPolicyLookAheadWindow": 1,
+  "otpPolicyPeriod": 30,
+  "roles": {
+    "realm": [
+      { "name": "OWNER", "description": "Full access to organization vault and billing" },
+      { "name": "ADMIN", "description": "Security officer - can view logs and manage policies" },
+      { "name": "REQUESTER", "description": "Internal staff - can request files but not delete" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "sec-vault-app",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "rootUrl": "http://localhost:5173",
+      "baseUrl": "http://localhost:5173",
+      "redirectUris": ["http://localhost:5173/*", "https://*.vercel.app/*"],
+      "webOrigins": ["*"],
+      "fullScopeAllowed": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      }
+    }
+  ],
+  "eventsEnabled": true,
+  "eventsExpiration": 2592000,
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": true,
+  "enabledEventTypes": [
+    "LOGIN", "LOGIN_ERROR", "REGISTER", "REGISTER_ERROR", "LOGOUT", "CODE_TO_TOKEN", "CODE_TO_TOKEN_ERROR",
+    "REFRESH_TOKEN", "REFRESH_TOKEN_ERROR", "SOCIAL_LINK", "SOCIAL_LINK_ERROR", "REMOVE_SOCIAL_LINK",
+    "REMOVE_SOCIAL_LINK_ERROR", "UPDATE_PASSWORD", "UPDATE_PASSWORD_ERROR", "UPDATE_PROFILE", "UPDATE_PROFILE_ERROR",
+    "UPDATE_TOTP", "UPDATE_TOTP_ERROR", "VERIFY_EMAIL", "VERIFY_EMAIL_ERROR", "REMOVE_TOTP", "REMOVE_TOTP_ERROR"
+  ]
+}
