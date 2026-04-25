@@ -22,7 +22,7 @@ def list_dam_events(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ):
-    from ..main import require_admin_user
+    from ..deps import require_admin_user
 
     require_admin_user(request)
 
@@ -100,10 +100,11 @@ def list_dam_events(
 
 @router.get("/events/{event_id}/integrity")
 def check_integrity(event_id: str, request: Request):
-    from ..main import require_admin_user
+    from ..deps import require_admin_user
 
     require_admin_user(request)
     result = verify_event_integrity(event_id)
     if result.get("reason") == "event_not_found":
         raise HTTPException(status_code=404, detail="Event not found")
     return result
+

@@ -353,7 +353,7 @@ If you did not request this, ignore this email.
 
 @router.get("/me", response_model=UserOut)
 def me(request: Request):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     return UserOut(id=user["id"], email=user["email"], created_at=user["created_at"], role=user["role"])
@@ -361,7 +361,7 @@ def me(request: Request):
 
 @router.post("/verify-email-request")
 def request_email_verification(request: Request):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     with get_db() as conn:
@@ -393,7 +393,7 @@ def verify_email(request: Request, token: str = None):
     if not token:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token required")
 
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     try:
         user = require_current_user(request)
@@ -442,3 +442,4 @@ def verify_email(request: Request, token: str = None):
         "login.html",
         {"request": request, "success": "Email verified successfully"},
     )
+

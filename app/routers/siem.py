@@ -110,3 +110,4 @@ async def block_ip(payload: dict, user=Depends(get_current_user)):
         "created_at": datetime.now(timezone.utc).isoformat()
     })
     return {"status": "success", "blocked_ip": ip}
+

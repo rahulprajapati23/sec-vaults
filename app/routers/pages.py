@@ -34,7 +34,7 @@ def login_page(request: Request):
 
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     try:
         user = require_current_user(request)
@@ -50,10 +50,11 @@ def dashboard(request: Request):
 
 @router.get("/upload", response_class=HTMLResponse)
 def upload_page(request: Request):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     try:
         require_current_user(request)
     except Exception:
         return RedirectResponse(url="/login")
     return request.app.state.templates.TemplateResponse("upload.html", {"request": request})
+

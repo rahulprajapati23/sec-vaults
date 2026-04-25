@@ -38,7 +38,7 @@ def request_access(
     actor_id = None
     actor_email = None
     try:
-        from ..main import require_current_user
+        from ..deps import require_current_user
 
         actor = require_current_user(request)
         actor_id = actor["id"]
@@ -98,7 +98,7 @@ def request_access(
 
 @router.get("/access-requests")
 def list_requests(request: Request):
-    from ..main import require_roles
+    from ..deps import require_roles
 
     owner = require_roles(request, {"OWNER", "ADMIN"})
     with get_db() as conn:
@@ -127,7 +127,7 @@ def approve_request(
     expires_minutes: int = Form(60),
     max_uses: int = Form(1),
 ):
-    from ..main import require_roles
+    from ..deps import require_roles
 
     owner = require_roles(request, {"OWNER", "ADMIN"})
     if expires_minutes < 1 or expires_minutes > 24 * 60:
@@ -171,7 +171,7 @@ def approve_request(
 
 @router.post("/access-requests/{request_id}/reject")
 def reject_request(request_id: int, request: Request, note: str = Form("")):
-    from ..main import require_roles
+    from ..deps import require_roles
 
     owner = require_roles(request, {"OWNER", "ADMIN"})
     with get_db() as conn:
@@ -284,3 +284,4 @@ def token_download(token: str, email: str, request: Request):
         media_type=grant["mime_type"],
         headers={"Content-Disposition": f'attachment; filename="{grant["original_name"]}"'},
     )
+

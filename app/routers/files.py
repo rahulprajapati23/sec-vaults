@@ -40,7 +40,7 @@ logger = get_logger()
 
 @router.get("")
 def list_files(request: Request):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     with get_db() as conn:
@@ -80,7 +80,7 @@ async def upload_file(
     expiry_hours: int = Form(24),
     max_downloads: int | None = Form(None),
 ):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     if expiry_hours < 1 or expiry_hours > 720:
@@ -165,7 +165,7 @@ async def api_upload_file(
     max_downloads: int | None = Form(None),
 ):
     """JSON-returning upload endpoint for the React SPA (does not redirect)."""
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     if expiry_hours < 1 or expiry_hours > 720:
@@ -238,7 +238,7 @@ async def api_upload_file(
 
 @router.get("/{file_id}/download")
 def download_file(request: Request, file_id: int):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     with get_db() as conn:
@@ -311,7 +311,7 @@ def download_file(request: Request, file_id: int):
 
 @router.post("/{file_id}/share")
 def create_share(request: Request, file_id: int, password: str = Form(...), expires_hours: int = Form(24)):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     if expires_hours < 1 or expires_hours > 720:
@@ -384,7 +384,7 @@ def create_share(request: Request, file_id: int, password: str = Form(...), expi
 
 @router.post("/{file_id}/delete")
 def delete_file(request: Request, file_id: int):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     with get_db() as conn:
@@ -424,7 +424,7 @@ def delete_file(request: Request, file_id: int):
 @router.delete("/{file_id}")
 def delete_file_api(request: Request, file_id: int):
     """JSON-compatible delete for the React SPA."""
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     with get_db() as conn:
@@ -450,7 +450,7 @@ async def upload_file_api(
     max_downloads: int | None = Form(None),
 ):
     """JSON-compatible upload for the React SPA (returns JSON, not redirect)."""
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     if expiry_hours < 1 or expiry_hours > 720:
@@ -513,7 +513,7 @@ async def upload_file_api(
 
 @router.post("/cleanup")
 def cleanup_expired(request: Request):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     require_current_user(request)
     with get_db() as conn:
@@ -538,7 +538,7 @@ def honeypot_trigger(request: Request):
     Honeypot endpoint. Any access here is considered malicious intent.
     Logs a critical event.
     """
-    from ..main import require_current_user
+    from ..deps import require_current_user
     try:
         user = require_current_user(request)
         user_id = user["id"]
@@ -562,4 +562,5 @@ def honeypot_trigger(request: Request):
     import time
     time.sleep(2)
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+
 

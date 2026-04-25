@@ -195,3 +195,4 @@ def verify_otp_form(request: Request, email: str = None):
         "verify_otp.html",
         {"request": request, "email": email or ""},
     )
+

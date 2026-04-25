@@ -58,17 +58,20 @@ const LoginPage = () => {
     try {
       await login(email, password);
       navigate('/');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const status = typeof err === 'object' && err && 'response' in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : undefined;
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
 
-      if (err.response?.status === 423 || newAttempts >= 5) {
+      if (status === 423 || newAttempts >= 5) {
         setIsLocked(true);
         setLockCountdown(300);
         setError('');
-      } else if (err.response?.status === 429) {
+      } else if (status === 429) {
         setError('Too many requests. Please slow down.');
-      } else if (err.response?.status === 401) {
+      } else if (status === 401) {
         setError('Invalid email or password.');
       } else {
         setError('An unexpected error occurred. Please try again.');

@@ -33,7 +33,7 @@ const ForgotPasswordPage = () => {
       // Call the backend password reset endpoint
       await api.post('/auth/request-password-reset', { email });
       setStep('sent');
-    } catch (err: any) {
+    } catch {
       // For security, we show success even if email doesn't exist (prevents user enumeration)
       setStep('sent');
     } finally {

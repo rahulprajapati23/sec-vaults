@@ -41,8 +41,11 @@ export const ShareModal = ({ fileId, fileName, onClose, onToast }: ShareModalPro
       });
       setResult(res.data);
       onToast('Secure share link generated!');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to generate share link.');
+    } catch (err: unknown) {
+      const detail = typeof err === 'object' && err && 'response' in err
+        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        : undefined;
+      setError(detail || 'Failed to generate share link.');
       onToast('Failed to generate share link.', 'error');
     } finally {
       setIsLoading(false);

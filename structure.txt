@@ -1,0 +1,58 @@
+DSSPrjct/ (Enterprise Architecture)
+├── backend/
+│   ├── app/
+│   │   ├── routes/              # API Route Handlers
+│   │   │   ├── __init__.py
+│   │   │   ├── auth.py
+│   │   │   ├── files.py
+│   │   │   ├── dam.py
+│   │   │   ├── analytics.py
+│   │   │   └── ... (other routes)
+│   │   ├── services/            # Business Logic & Background Tasks
+│   │   │   ├── audit.py
+│   │   │   ├── dam.py
+│   │   │   ├── files.py
+│   │   │   └── tasks.py
+│   │   ├── utils/               # Helper utilities
+│   │   │   └── response.py      # Standard API Response wrapper
+│   │   ├── middlewares/         # Custom FastAPI middlewares
+│   │   ├── schemas.py           # Pydantic models (API Contract)
+│   │   ├── models.py            # Database model definitions
+│   │   ├── database.py          # DB Connection & Init
+│   │   ├── config.py            # Settings & Environment Loader
+│   │   ├── security.py          # JWT, Hashing, Encryption logic
+│   │   ├── deps.py              # FastAPI Dependencies (Auth/RBAC)
+│   │   └── main.py              # Application Entry Point
+│   ├── Dockerfile               # Backend container config
+│   ├── .env                     # Backend specific environment variables
+│   └── requirements.txt         # Python dependencies
+├── frontend/
+│   ├── src/
+│   │   ├── components/          # Shared UI Components
+│   │   ├── features/            # Feature-based logic (Auth, Vault, etc.)
+│   │   │   ├── auth/
+│   │   │   └── vault/
+│   │   ├── pages/               # Page-level components
+│   │   │   ├── DashboardPage.tsx
+│   │   │   └── LoginPage.tsx
+│   │   ├── services/            # API Service (Axios instance)
+│   │   │   └── api.ts
+│   │   ├── hooks/               # Custom React hooks
+│   │   ├── types/               # TypeScript interfaces
+│   │   ├── App.tsx              # Main Application & Router
+│   │   └── main.tsx             # React entry point
+│   ├── Dockerfile               # Frontend container config
+│   ├── .env                     # Frontend specific environment variables
+│   ├── package.json             # Frontend dependencies
+│   └── tsconfig.json            # TypeScript config
+├── database/
+│   ├── schema.sql               # Master Database Schema
+│   ├── migrations/              # DB Versioning scripts
+│   └── seeds/                   # Initial data seeds
+├── infra/
+│   └── docker-compose.yml       # Production/Dev orchestration
+├── data/                        # Persistent Storage (Volumes)
+│   ├── app.db                   # SQLite Database
+│   └── storage/                 # Encrypted File Blobs
+├── logs/                        # Application Audit Logs
+└── README.md                    # Project Documentation

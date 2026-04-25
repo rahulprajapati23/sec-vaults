@@ -12,7 +12,7 @@ router = APIRouter(prefix="/mfa", tags=["mfa"])
 
 @router.post("/request-otp")
 def request_mfa_otp(request: Request, email: str = Form(...)):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     if user["email"].lower() != email.lower():
@@ -43,7 +43,7 @@ def request_mfa_otp(request: Request, email: str = Form(...)):
 
 @router.post("/verify-otp")
 def verify_mfa_otp(request: Request, otp: str = Form(...)):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     otp_hash = hash_otp(otp)
@@ -76,3 +76,4 @@ def verify_mfa_otp(request: Request, otp: str = Form(...)):
     )
 
     return {"message": "MFA verified"}
+

@@ -33,7 +33,7 @@ def report_summary(
     Return security statistics for the past N days.
     Used by the dashboard Logs & Reports page.
     """
-    from ..main import require_current_user
+    from ..deps import require_current_user
     require_current_user(request)
 
     try:
@@ -47,7 +47,7 @@ def report_summary(
 @router.post("/send/daily")
 def trigger_daily_report(request: Request):
     """Manually trigger the daily security report email."""
-    from ..main import require_admin_user
+    from ..deps import require_admin_user
     user = require_admin_user(request)
 
     # Run in background thread so HTTP response returns immediately
@@ -69,7 +69,7 @@ def trigger_daily_report(request: Request):
 @router.post("/send/weekly")
 def trigger_weekly_report(request: Request):
     """Manually trigger the weekly security report email."""
-    from ..main import require_admin_user
+    from ..deps import require_admin_user
     user = require_admin_user(request)
 
     def _send():
@@ -96,7 +96,7 @@ def generate_activity_report_csv(
     end_date: str = Query(...),
     user_id: int | None = Query(None),
 ):
-    from ..main import require_current_user
+    from ..deps import require_current_user
     user = require_current_user(request)
     if user_id and user_id != user["id"] and user["role"] not in {"admin", "auditor"}:
         raise HTTPException(status_code=403, detail="Cannot generate reports for other users")
@@ -127,7 +127,7 @@ def generate_activity_report_json(
     end_date: str = Query(...),
     user_id: int | None = Query(None),
 ):
-    from ..main import require_current_user
+    from ..deps import require_current_user
     user = require_current_user(request)
     if user_id and user_id != user["id"] and user["role"] not in {"admin", "auditor"}:
         raise HTTPException(status_code=403, detail="Cannot generate reports for other users")
@@ -149,3 +149,4 @@ def generate_activity_report_json(
         metadata={"report_id": report_id, "format": "json"},
     )
     return {"report_id": report_id, "file_path": file_path, "format": "json"}
+

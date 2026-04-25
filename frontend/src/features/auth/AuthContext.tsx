@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../../services/api';
+import { api, type ApiResponse } from '../../services/api';
+import type { AuthUser } from '../../types/auth';
 
 interface AuthContextType {
-  user: any;
+  user: AuthUser | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
@@ -11,14 +12,14 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if we are authenticated by trying to fetch the user profile
-    // Axios will automatically send the HttpOnly cookie if it exists
-    api.get('/auth/me')
-      .then(res => setUser(res.data))
+    (api.get('/auth/me') as unknown as Promise<ApiResponse<AuthUser>>)
+      .then(res => {
+        if (res.success) setUser(res.data);
+      })
       .catch(() => setUser(null))
       .finally(() => setIsLoading(false));
   }, []);
@@ -28,11 +29,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     formData.append('email', email);
     formData.append('password', password);
 
-    // Call the JSON-compatible login endpoint (sets HttpOnly cookie + returns user JSON)
-    const res = await api.post('/auth/api-login', formData, {
+    const res = await (api.post('/auth/login', formData, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
-    setUser(res.data);
+    }) as unknown as Promise<ApiResponse<any>>);
+    
+    if (res.success) {
+      setUser(res.data.user);
+    } else {
+      throw new Error(res.error || 'Login failed');
+    }
   };
 
   const logout = () => {

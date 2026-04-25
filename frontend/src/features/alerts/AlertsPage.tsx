@@ -25,7 +25,11 @@ export interface DamEvent {
   file_id: number | null;
   file_name: string | null;
   created_at: string;
-  metadata: Record<string, any>;
+  metadata: {
+    risk_score?: number | string;
+    risk_factors?: string[];
+    [key: string]: unknown;
+  };
   isNew?: boolean; // UI-only flag for animation
 }
 
@@ -40,11 +44,11 @@ const SEVERITY_CONFIG = {
 };
 
 const SeverityBadge = ({ severity }: { severity: string }) => {
-  const cfg = SEVERITY_CONFIG[severity as keyof typeof SEVERITY_CONFIG] || SEVERITY_CONFIG.low;
+  const severityConfig = SEVERITY_CONFIG[severity as keyof typeof SEVERITY_CONFIG] || SEVERITY_CONFIG.low;
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-      {cfg.label}
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold border ${severityConfig.bg} ${severityConfig.text} ${severityConfig.border}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${severityConfig.dot}`} />
+      {severityConfig.label}
     </span>
   );
 };
@@ -58,6 +62,16 @@ const safeDate = (val: string) => {
 
 // --- Alert Detail Modal ---
 const AlertDetailModal = ({ event, onClose }: { event: DamEvent; onClose: () => void }) => {
+  const riskScoreRaw = event.metadata?.risk_score;
+  const riskScore = typeof riskScoreRaw === 'number'
+    ? riskScoreRaw
+    : typeof riskScoreRaw === 'string'
+      ? Number(riskScoreRaw)
+      : undefined;
+  const riskFactors = Array.isArray(event.metadata?.risk_factors)
+    ? event.metadata.risk_factors
+    : [];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -95,24 +109,24 @@ const AlertDetailModal = ({ event, onClose }: { event: DamEvent; onClose: () => 
         </div>
 
         {/* Risk score */}
-        {event.metadata?.risk_score !== undefined && (
+        {riskScore !== undefined && Number.isFinite(riskScore) && (
           <div className="px-5 pb-4">
             <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-slate-400 font-medium uppercase tracking-wide">Risk Score</span>
-                <span className={`text-lg font-bold font-mono ${event.metadata.risk_score >= 7 ? 'text-red-400' : event.metadata.risk_score >= 4 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                  {Number(event.metadata.risk_score).toFixed(1)} / 10
+                <span className={`text-lg font-bold font-mono ${riskScore >= 7 ? 'text-red-400' : riskScore >= 4 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {riskScore.toFixed(1)} / 10
                 </span>
               </div>
               <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${event.metadata.risk_score >= 7 ? 'bg-red-500' : event.metadata.risk_score >= 4 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                  style={{ width: `${(event.metadata.risk_score / 10) * 100}%` }}
+                  className={`h-full rounded-full transition-all ${riskScore >= 7 ? 'bg-red-500' : riskScore >= 4 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                  style={{ width: `${(riskScore / 10) * 100}%` }}
                 />
               </div>
-              {event.metadata.risk_factors && (
+              {riskFactors.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-3">
-                  {(event.metadata.risk_factors as string[]).map(f => (
+                  {riskFactors.map(f => (
                     <span key={f} className="text-xs bg-slate-700 border border-slate-600 text-slate-300 px-2 py-0.5 rounded-full">{f}</span>
                   ))}
                 </div>
@@ -137,11 +151,11 @@ const AlertDetailModal = ({ event, onClose }: { event: DamEvent; onClose: () => 
 
 // --- Alert Row ---
 const AlertRow = ({ event, onSelect }: { event: DamEvent; onSelect: () => void }) => {
-  const cfg = SEVERITY_CONFIG[event.severity] || SEVERITY_CONFIG.low;
+  const severityConfig = SEVERITY_CONFIG[event.severity] || SEVERITY_CONFIG.low;
   return (
     <tr
       onClick={onSelect}
-      className={`cursor-pointer transition-all border-b border-slate-800/60 hover:bg-slate-800/40 ${event.isNew ? 'animate-pulse bg-blue-500/5' : ''} ${event.severity === 'critical' || event.severity === 'high' ? cfg.rowHighlight : ''}`}
+      className={`cursor-pointer transition-all border-b border-slate-800/60 hover:bg-slate-800/40 ${event.isNew ? 'animate-pulse bg-blue-500/5' : ''} ${event.severity === 'critical' || event.severity === 'high' ? severityConfig.rowHighlight : ''}`}
     >
       <td className="px-4 py-3 text-xs text-slate-400 font-mono whitespace-nowrap">
         {formatDistanceToNow(safeDate(event.created_at), { addSuffix: true })}
@@ -171,7 +185,7 @@ export const AlertsPage = () => {
   const [autoScroll, setAutoScroll] = useState(true);
   const [newAlertToast, setNewAlertToast] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const reconnectTimer = useRef<ReturnType<typeof window.setTimeout> | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
   const { data: historical } = useQuery({
@@ -188,7 +202,7 @@ export const AlertsPage = () => {
     if (historical && alerts.length === 0) {
       setAlerts(historical);
     }
-  }, [historical]);
+  }, [historical, alerts.length]);
 
   const addAlert = useCallback((event: DamEvent) => {
     setAlerts(prev => {
@@ -226,7 +240,7 @@ export const AlertsPage = () => {
     };
     ws.onclose = () => {
       setWsStatus('disconnected');
-      reconnectTimer.current = setTimeout(connect, 3000);
+      reconnectTimer.current = window.setTimeout(connect, 3000);
     };
     ws.onerror = () => {
       setWsStatus('error');
@@ -244,7 +258,9 @@ export const AlertsPage = () => {
   useEffect(() => {
     connect();
     return () => {
-      clearTimeout(reconnectTimer.current);
+      if (reconnectTimer.current !== null) {
+        window.clearTimeout(reconnectTimer.current);
+      }
       wsRef.current?.close();
     };
   }, [connect]);

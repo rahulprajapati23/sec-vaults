@@ -88,8 +88,11 @@ const RegisterPage = () => {
       });
       setStep('otp');
       setResendCooldown(60);
-    } catch (err: any) {
-      if (err.response?.status === 400) {
+    } catch (err: unknown) {
+      const status = typeof err === 'object' && err && 'response' in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : undefined;
+      if (status === 400) {
         setServerError('This email is already registered. Please sign in.');
       } else {
         setServerError('Failed to send verification code. Try again.');
@@ -119,9 +122,12 @@ const RegisterPage = () => {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       });
       setStep('success');
-    } catch (err: any) {
-      const detail = err.response?.data?.detail || '';
-      if (err.response?.status === 401) {
+    } catch (err: unknown) {
+      const response = typeof err === 'object' && err && 'response' in err
+        ? (err as { response?: { status?: number; data?: { detail?: string } } }).response
+        : undefined;
+      const detail = response?.data?.detail || '';
+      if (response?.status === 401) {
         setOtpError('Invalid or expired code. Please try again.');
       } else {
         setServerError(detail || 'Verification failed. Please try again.');

@@ -4,9 +4,29 @@ import { api } from '../../services/api';
 import { ShieldExclamationIcon, PlayIcon, StopIcon } from '@heroicons/react/24/outline';
 
 export const PoliciesPage = () => {
+  interface Incident {
+    id: string;
+    title: string;
+    owasp_vector: string;
+    affected_resource: string;
+    risk_score: number;
+    status: string;
+    attacker_ip?: string | null;
+  }
+
+  interface LiveFeedEvent {
+    type: string;
+    severity?: 'low' | 'medium' | 'high' | 'critical';
+    action?: string;
+    message?: string;
+    source_ip?: string;
+    owasp_vector?: string;
+    title?: string;
+  }
+
   const queryClient = useQueryClient();
   const [engineActive, setEngineActive] = useState(true);
-  const [liveEvents, setLiveEvents] = useState<any[]>([]);
+  const [liveEvents, setLiveEvents] = useState<LiveFeedEvent[]>([]);
 
   // Fetch Incidents
   const { data: incidentsData } = useQuery({
@@ -15,7 +35,7 @@ export const PoliciesPage = () => {
     refetchInterval: 5000,
   });
 
-  const incidents = Array.isArray(incidentsData) ? incidentsData : [];
+  const incidents: Incident[] = Array.isArray(incidentsData) ? incidentsData : [];
 
   // Block IP Mutation
   const blockIpMutation = useMutation({
@@ -49,10 +69,10 @@ export const PoliciesPage = () => {
   }, [engineActive]);
 
   const owaspRules = [
-    { id: 'A01', name: 'Broken Access Control', triggers: incidents.filter((i: any) => i.owasp_vector.includes('A01')).length },
-    { id: 'A02', name: 'Cryptographic Failures', triggers: incidents.filter((i: any) => i.owasp_vector.includes('A02')).length },
-    { id: 'A03', name: 'Injection (Malware)', triggers: incidents.filter((i: any) => i.owasp_vector.includes('A03')).length },
-    { id: 'A07', name: 'Auth Failures (Brute Force)', triggers: incidents.filter((i: any) => i.owasp_vector.includes('A07')).length },
+    { id: 'A01', name: 'Broken Access Control', triggers: incidents.filter((i) => i.owasp_vector.includes('A01')).length },
+    { id: 'A02', name: 'Cryptographic Failures', triggers: incidents.filter((i) => i.owasp_vector.includes('A02')).length },
+    { id: 'A03', name: 'Injection (Malware)', triggers: incidents.filter((i) => i.owasp_vector.includes('A03')).length },
+    { id: 'A07', name: 'Auth Failures (Brute Force)', triggers: incidents.filter((i) => i.owasp_vector.includes('A07')).length },
   ];
 
   return (
@@ -158,7 +178,7 @@ export const PoliciesPage = () => {
               {incidents.length === 0 ? (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-sm">No incidents detected. System is secure.</td></tr>
               ) : (
-                incidents.map((inc: any) => (
+                incidents.map((inc) => (
                   <tr key={inc.id} className="hover:bg-slate-750 transition-colors">
                     <td className="px-4 py-3 font-mono text-xs text-blue-400">{inc.id}</td>
                     <td className="px-4 py-3 text-slate-300 font-medium">{inc.owasp_vector}</td>
@@ -174,9 +194,9 @@ export const PoliciesPage = () => {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right space-x-2">
-                      {inc.status === 'open' && inc.attacker_ip && (
+                      {inc.status === 'open' && typeof inc.attacker_ip === 'string' && inc.attacker_ip.length > 0 && (
                         <button 
-                          onClick={() => blockIpMutation.mutate(inc.attacker_ip)}
+                          onClick={() => blockIpMutation.mutate(inc.attacker_ip as string)}
                           disabled={blockIpMutation.isPending}
                           className="bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-600/50 px-3 py-1 rounded text-xs font-medium transition-colors"
                         >

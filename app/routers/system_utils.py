@@ -14,7 +14,7 @@ router = APIRouter(prefix="/system", tags=["system"])
 @router.get("/smtp-status")
 def smtp_status(request: Request):
     """Return current SMTP configuration status (no credentials exposed)."""
-    from ..main import require_current_user
+    from ..deps import require_current_user
     require_current_user(request)
     settings = get_settings()
     return {
@@ -31,7 +31,7 @@ def smtp_status(request: Request):
 @router.post("/smtp-test")
 def smtp_test(request: Request):
     """Send a test email to verify SMTP is working correctly."""
-    from ..main import require_current_user
+    from ..deps import require_current_user
     user = require_current_user(request)
     settings = get_settings()
 
@@ -103,3 +103,4 @@ If you received this email, your SMTP setup is working perfectly.
         "success": False,
         "error": "SMTP send failed. Check server logs for details (smtp_alert_failed)."
     })
+

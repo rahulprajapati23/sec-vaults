@@ -11,7 +11,7 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 @router.get("")
 def get_sessions(request: Request):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     with get_db() as conn:
@@ -22,7 +22,7 @@ def get_sessions(request: Request):
 
 @router.post("/{session_id}/logout")
 def logout_specific_session(session_id: str, request: Request):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     with get_db() as conn:
@@ -44,7 +44,7 @@ def logout_specific_session(session_id: str, request: Request):
 
 @router.post("/logout-all")
 def logout_all_user_sessions(request: Request, except_current: bool = True):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     except_hash = request.cookies.get("session_token_hash") if except_current else None
@@ -64,3 +64,4 @@ def logout_all_user_sessions(request: Request, except_current: bool = True):
     )
 
     return {"message": f"Logged out {count} sessions"}
+

@@ -1,7 +1,5 @@
 import axios from 'axios';
 
-// Empty baseURL keeps local Vite proxy behavior.
-// Set VITE_API_URL in hosted environments (for example, Vercel -> Render).
 const apiBaseUrl = import.meta.env.VITE_API_URL?.trim() || '';
 
 export const api = axios.create({
@@ -9,14 +7,26 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-// Setup response interceptors for global error handling
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data: T;
+  error: string | null;
+}
+
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Return only the data portion of the axios response (the StandardResponse)
+    return response.data;
+  },
   (error) => {
     if (error.response?.status === 401) {
-      console.warn("Unauthorized: User needs to login");
-      // Handle redirect to login page logic here later
+      console.warn("Unauthorized session");
     }
-    return Promise.reject(error);
+    // Transform axios error into our standard format if possible
+    return Promise.reject({
+      success: false,
+      data: null,
+      error: error.response?.data?.error || error.message || 'Unknown error'
+    });
   }
 );

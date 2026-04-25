@@ -1,14 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
 import { Section, SettingRow, Toggle, NumberInput } from './SettingsComponents';
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 
 interface Props {
-  config: any;
-  set: (key: any, value: any) => void;
+  config: {
+    dailyReportEnabled: boolean;
+    weeklyReportEnabled: boolean;
+    logRetentionDays: number;
+  };
+  set: (key: 'dailyReportEnabled' | 'weeklyReportEnabled' | 'logRetentionDays', value: boolean | number) => void;
 }
 
-const StatCard = ({ label, value, color }: { label: string; value: any; color: string }) => (
+const StatCard = ({ label, value, color }: { label: string; value: string | number | null | undefined; color: string }) => (
   <div className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-4 text-center">
     <p className={`text-2xl font-bold font-mono ${color}`}>{value ?? '…'}</p>
     <p className="text-xs text-slate-500 mt-1 uppercase tracking-wide font-medium">{label}</p>
@@ -16,13 +20,23 @@ const StatCard = ({ label, value, color }: { label: string; value: any; color: s
 );
 
 export const LogsReportsTab = ({ config, set }: Props) => {
-  const [summary, setSummary] = useState<any>(null);
+  interface SummaryData {
+    total_events: number;
+    high_risk_events: number;
+    failed_logins: number;
+    unauthorized_access: number;
+    malware_detected: number;
+    unique_actors: number;
+    top_attacker_ips?: [string, number][];
+  }
+  const [summary, setSummary] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sendResult, setSendResult] = useState<Record<string, { ok: boolean; msg: string } | null>>({});
   const [sending, setSending] = useState<Record<string, boolean>>({});
   const [period, setPeriod] = useState(1);
+  const topAttackerIps = summary?.top_attacker_ips ?? [];
 
-  const fetchSummary = async (days = period) => {
+  const fetchSummary = useCallback(async (days = period) => {
     setLoading(true);
     try {
       const res = await api.get(`/reports/summary?days=${days}`);
@@ -32,9 +46,11 @@ export const LogsReportsTab = ({ config, set }: Props) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [period]);
 
-  useEffect(() => { fetchSummary(period); }, [period]);
+  useEffect(() => {
+    fetchSummary(period);
+  }, [period, fetchSummary]);
 
   const sendReport = async (type: 'daily' | 'weekly') => {
     setSending(s => ({ ...s, [type]: true }));
@@ -42,8 +58,11 @@ export const LogsReportsTab = ({ config, set }: Props) => {
     try {
       const res = await api.post(`/reports/send/${type}`);
       setSendResult(r => ({ ...r, [type]: { ok: true, msg: res.data.message } }));
-    } catch (err: any) {
-      setSendResult(r => ({ ...r, [type]: { ok: false, msg: err.response?.data?.detail || 'Failed to send report' } }));
+    } catch (err: unknown) {
+      const detail = typeof err === 'object' && err && 'response' in err
+        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        : undefined;
+      setSendResult(r => ({ ...r, [type]: { ok: false, msg: detail || 'Failed to send report' } }));
     } finally {
       setSending(s => ({ ...s, [type]: false }));
     }
@@ -91,10 +110,10 @@ export const LogsReportsTab = ({ config, set }: Props) => {
       )}
 
       {/* Top Attackers */}
-      {summary?.top_attacker_ips?.length > 0 && (
+      {topAttackerIps.length > 0 && (
         <Section title="Top Suspicious IPs" icon="⚠️">
           <div className="py-3 space-y-2">
-            {summary.top_attacker_ips.map(([ip, count]: [string, number]) => (
+            {topAttackerIps.map(([ip, count]: [string, number]) => (
               <div key={ip} className="flex items-center justify-between">
                 <span className="text-sm font-mono text-slate-300">{ip}</span>
                 <span className="text-xs font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded-full">{count}× failed</span>

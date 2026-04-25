@@ -11,7 +11,7 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 @router.get("/dashboard", response_class=HTMLResponse)
 def get_dashboard(request: Request):
-    from ..main import require_admin_user
+    from ..deps import require_admin_user
 
     user = require_admin_user(request)
     with get_db() as conn:
@@ -25,7 +25,7 @@ def get_dashboard(request: Request):
 
 @router.get("/user/{user_id}")
 def get_user_analytics(user_id: int, request: Request):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     if user["id"] != user_id and user["role"] not in {"admin", "auditor"}:
@@ -39,10 +39,11 @@ def get_user_analytics(user_id: int, request: Request):
 
 @router.get("/me")
 def get_my_analytics(request: Request):
-    from ..main import require_current_user
+    from ..deps import require_current_user
 
     user = require_current_user(request)
     with get_db() as conn:
         summary = get_user_activity_summary(conn, user["id"])
 
     return summary
+

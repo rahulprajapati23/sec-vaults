@@ -89,9 +89,19 @@ export const SettingsPage = () => {
   const [toast, setToast] = useState('');
 
   // SMTP state
-  const [smtpStatus, setSmtpStatus] = useState<any>(null);
+  const [smtpStatus, setSmtpStatus] = useState<{
+    smtp_enabled: boolean;
+    smtp_host: string | null;
+    smtp_port?: number;
+    smtp_user?: string | null;
+    smtp_sender?: string | null;
+    smtp_starttls?: boolean;
+    admin_alert_emails?: string[];
+  } | null>(null);
   const [smtpTesting, setSmtpTesting] = useState(false);
   const [smtpResult, setSmtpResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const smtpEnabled = Boolean(smtpStatus?.smtp_enabled);
+  const smtpAdminEmails = smtpStatus?.admin_alert_emails ?? [];
 
   useEffect(() => {
     api.get('/system/smtp-status')
@@ -105,8 +115,11 @@ export const SettingsPage = () => {
     try {
       const res = await api.post('/system/smtp-test');
       setSmtpResult({ ok: true, msg: res.data.message });
-    } catch (err: any) {
-      setSmtpResult({ ok: false, msg: err.response?.data?.error || 'SMTP test failed' });
+    } catch (err: unknown) {
+      const message = typeof err === 'object' && err && 'response' in err
+        ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+        : undefined;
+      setSmtpResult({ ok: false, msg: message || 'SMTP test failed' });
     } finally {
       setSmtpTesting(false);
     }
@@ -330,16 +343,16 @@ export const SettingsPage = () => {
                 : 'bg-red-500/5 border-red-500/20'
             }`}>
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0 ${
-                smtpStatus?.smtp_enabled ? 'bg-emerald-500/15' : 'bg-red-500/15'
+                smtpEnabled ? 'bg-emerald-500/15' : 'bg-red-500/15'
               }`}>
-                {smtpStatus === null ? '⏳' : smtpStatus.smtp_enabled ? '✅' : '❌'}
+                {smtpStatus === null ? '⏳' : smtpEnabled ? '✅' : '❌'}
               </div>
               <div>
-                <p className={`font-bold text-sm ${smtpStatus?.smtp_enabled ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {smtpStatus === null ? 'Checking SMTP status...' : smtpStatus.smtp_enabled ? 'SMTP is Active' : 'SMTP is Disabled'}
+                <p className={`font-bold text-sm ${smtpEnabled ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {smtpStatus === null ? 'Checking SMTP status...' : smtpEnabled ? 'SMTP is Active' : 'SMTP is Disabled'}
                 </p>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {smtpStatus?.smtp_enabled
+                  {smtpEnabled
                     ? 'Email alerts, OTP emails, and notifications are fully operational.'
                     : 'Set SMTP_ENABLED=true in your .env file to enable email delivery.'}
                 </p>
@@ -364,12 +377,12 @@ export const SettingsPage = () => {
             )}
 
             {/* Admin recipients */}
-            {smtpStatus?.admin_alert_emails?.length > 0 && (
+            {smtpAdminEmails.length > 0 && (
               <Section title="Alert Recipients" icon="📬">
                 <div className="py-4">
                   <p className="text-xs text-slate-500 mb-3">Security alerts and reports are sent to these addresses:</p>
                   <div className="flex flex-wrap gap-2">
-                    {smtpStatus.admin_alert_emails.map((email: string) => (
+                    {smtpAdminEmails.map((email: string) => (
                       <span key={email} className="inline-flex items-center gap-1.5 bg-slate-800 border border-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-full">
                         <EnvelopeIcon className="w-3 h-3 text-blue-400" /> {email}
                       </span>
@@ -388,7 +401,7 @@ export const SettingsPage = () => {
 
                 <button
                   onClick={handleSmtpTest}
-                  disabled={smtpTesting || !smtpStatus?.smtp_enabled}
+                  disabled={smtpTesting || !smtpEnabled}
                   className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-all"
                 >
                   {smtpTesting
@@ -416,7 +429,7 @@ export const SettingsPage = () => {
                   </div>
                 )}
 
-                {!smtpStatus?.smtp_enabled && (
+                {!smtpEnabled && (
                   <div className="bg-amber-900/20 border border-amber-700/30 rounded-xl p-4">
                     <p className="text-amber-300 text-xs font-semibold mb-2">To enable email:</p>
                     <pre className="text-amber-400/80 text-xs font-mono leading-relaxed whitespace-pre-wrap">{`SMTP_ENABLED=true
@@ -436,7 +449,12 @@ ADMIN_ALERT_EMAILS=admin@yourcompany.com`}</pre>
 
         {/* ─── LOGS & REPORTS ───────────────────────────── */}
         {activeTab === 'logs' && (
-          <LogsReportsTab config={config} set={set} />
+          <LogsReportsTab
+            config={config}
+            set={(key, value) => {
+              set(key, value as Config[typeof key]);
+            }}
+          />
         )}
 
         {/* ─── ADVANCED SECURITY ────────────────────────── */}

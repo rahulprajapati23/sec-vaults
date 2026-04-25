@@ -67,3 +67,4 @@ def keycloak_login(username: str = Form(...), password: str = Form(...)):
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Login failed: {exc}") from exc
+

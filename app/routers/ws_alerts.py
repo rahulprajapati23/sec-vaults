@@ -73,3 +73,4 @@ async def ws_alerts(ws: WebSocket):
         import logging
         logging.getLogger("uvicorn.error").error(f"WebSocket error: {e}")
         broadcaster.disconnect(ws)
+

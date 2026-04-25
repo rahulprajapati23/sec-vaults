@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { CloudArrowUpIcon, XMarkIcon, ShieldCheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { api } from '../../services/api';
+import type { DragEvent } from 'react';
 
 type ScanStatus = 'idle' | 'uploading' | 'scanning' | 'clean' | 'infected' | 'error';
 
@@ -22,7 +23,7 @@ export const UploadModal = ({ onClose }: UploadModalProps) => {
 
   const handleFile = (f: File) => { setSelectedFile(f); setScanStatus('idle'); setErrorMsg(''); };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault(); setIsDragging(false);
     const f = e.dataTransfer.files[0];
     if (f) handleFile(f);
@@ -56,16 +57,19 @@ export const UploadModal = ({ onClose }: UploadModalProps) => {
       if (res.data.scan_status !== 'infected') {
         setTimeout(onClose, 1500);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const response = typeof err === 'object' && err && 'response' in err
+        ? (err as { response?: { status?: number; data?: { detail?: string } } }).response
+        : undefined;
       setScanStatus('error');
       setProgress(0);
-      if (err.response?.status === 406) {
+      if (response?.status === 406) {
         setScanStatus('infected');
         setErrorMsg('Malware detected! File has been blocked and quarantined.');
-      } else if (err.response?.status === 413) {
+      } else if (response?.status === 413) {
         setErrorMsg('File too large. Maximum allowed size exceeded.');
       } else {
-        setErrorMsg(err.response?.data?.detail || 'Upload failed. Please try again.');
+        setErrorMsg(response?.data?.detail || 'Upload failed. Please try again.');
       }
     }
   };
