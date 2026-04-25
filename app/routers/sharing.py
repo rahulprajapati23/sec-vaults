@@ -152,7 +152,8 @@ def share_download(token: str, request: Request, password: str = Form(...)):
             raise HTTPException(status_code=status.HTTP_410_GONE, detail="File expired")
         if file_is_download_limited(file_row):
             raise HTTPException(status_code=status.HTTP_410_GONE, detail="Download limit reached")
-        encrypted_blob = open(file_row["storage_path"], "rb").read()
+        from ..services.files import get_file_blob
+        encrypted_blob = get_file_blob(file_row["storage_path"])
         plaintext = decrypt_bytes(
             encrypted_blob,
             file_row["file_nonce"],
@@ -289,7 +290,8 @@ def share_api_download(token: str, request: Request, password: str = Form(...)):
         if file_is_download_limited(file_row):
             return JSONResponse(status_code=410, content={"error": "Download limit reached"})
 
-        encrypted_blob = open(file_row["storage_path"], "rb").read()
+        from ..services.files import get_file_blob
+        encrypted_blob = get_file_blob(file_row["storage_path"])
         plaintext = decrypt_bytes(
             encrypted_blob, file_row["file_nonce"], file_row["encrypted_key"],
             file_row["key_nonce"], get_settings().master_key,

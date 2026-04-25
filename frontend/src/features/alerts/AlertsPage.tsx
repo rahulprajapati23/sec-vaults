@@ -58,7 +58,6 @@ const safeDate = (val: string) => {
 
 // --- Alert Detail Modal ---
 const AlertDetailModal = ({ event, onClose }: { event: DamEvent; onClose: () => void }) => {
-  const cfg = SEVERITY_CONFIG[event.severity] || SEVERITY_CONFIG.low;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -172,7 +171,7 @@ export const AlertsPage = () => {
   const [autoScroll, setAutoScroll] = useState(true);
   const [newAlertToast, setNewAlertToast] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimer = useRef<ReturnType<typeof setTimeout>>();
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
   const { data: historical } = useQuery({

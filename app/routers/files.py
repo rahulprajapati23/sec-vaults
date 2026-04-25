@@ -263,8 +263,9 @@ def download_file(request: Request, file_id: int):
         if file_is_download_limited(file_row):
             raise HTTPException(status_code=status.HTTP_410_GONE, detail="Download limit reached")
 
+        from ..services.files import get_file_blob
         blob_path = file_row["storage_path"]
-        encrypted_blob = open(blob_path, "rb").read()
+        encrypted_blob = get_file_blob(blob_path)
         plaintext = decrypt_bytes(
             encrypted_blob,
             file_row["file_nonce"],

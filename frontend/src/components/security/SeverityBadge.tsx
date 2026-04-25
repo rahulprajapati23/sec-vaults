@@ -1,4 +1,3 @@
-import React from 'react';
 import { cn } from '../common/Button';
 
 export const SeverityBadge = ({ severity }: { severity: 'low' | 'medium' | 'high' | 'critical' }) => {

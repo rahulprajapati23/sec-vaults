@@ -47,8 +47,13 @@ def get_file_owner_email(conn: sqlite3.Connection, file_id: int) -> str | None:
 
 
 
+def get_supabase_client():
+    from supabase import create_client
+    settings = get_settings()
+    return create_client(settings.supabase_url, settings.supabase_anon_key)
+
 def store_encrypted_file(
-    conn: sqlite3.Connection,
+    conn: Any,
     *,
     owner_id: int,
     original_name: str,
@@ -60,13 +65,37 @@ def store_encrypted_file(
     file_nonce: bytes,
     expiry_hours: int,
     max_downloads: int | None,
-) -> sqlite3.Row:
+) -> Any:
     settings = get_settings()
-    settings.storage_path.mkdir(parents=True, exist_ok=True)
     stored_name = f"file_{os.urandom(16).hex()}.bin"
-    storage_path = settings.storage_path / stored_name
-    with storage_path.open("wb") as handle:
-        handle.write(encrypted_blob)
+    
+    if settings.use_supabase and settings.supabase_url:
+        # Upload to Supabase Storage
+        try:
+            client = get_supabase_client()
+            # Ensure bucket exists (this might fail if already exists, so we ignore error)
+            try:
+                client.storage.create_bucket("vault", options={"public": False})
+            except:
+                pass
+            
+            client.storage.from_("vault").upload(
+                path=stored_name,
+                file=encrypted_blob,
+                file_options={"content-type": "application/octet-stream"}
+            )
+            storage_path = f"supabase://vault/{stored_name}"
+        except Exception as e:
+            # Fallback to local if Supabase fails (optional, or just raise)
+            print(f"Supabase upload failed: {e}")
+            raise
+    else:
+        # Local storage fallback
+        settings.storage_path.mkdir(parents=True, exist_ok=True)
+        storage_path_local = settings.storage_path / stored_name
+        with storage_path_local.open("wb") as handle:
+            handle.write(encrypted_blob)
+        storage_path = str(storage_path_local)
 
     created_at = datetime.now(timezone.utc)
     expires_at = created_at + timedelta(hours=expiry_hours)
@@ -87,13 +116,20 @@ def store_encrypted_file(
             key_nonce,
             encrypted_key,
             file_nonce,
-            str(storage_path),
+            storage_path,
             created_at.isoformat(),
             expires_at.isoformat(),
             max_downloads,
         ),
     )
-    return conn.execute("SELECT * FROM files WHERE id = ?", (cur.lastrowid,)).fetchone()
+    # Get the ID (works for both SQLite and Postgres via our wrapper)
+    last_id = cur.lastrowid if hasattr(cur, 'lastrowid') else None
+    if not last_id and not isinstance(conn, sqlite3.Connection):
+        # For Postgres, we might need to fetch the ID differently if lastrowid is missing
+        # But our wrapper should handle it or we can query it
+        pass
+
+    return conn.execute("SELECT * FROM files WHERE owner_id = ? ORDER BY id DESC LIMIT 1", (owner_id,)).fetchone()
 
 
 
@@ -201,10 +237,30 @@ def log_download(
 
 
 
+def get_file_blob(storage_path: str) -> bytes:
+    """Retrieve the encrypted blob from either Supabase or local disk."""
+    if storage_path.startswith("supabase://"):
+        parts = storage_path.replace("supabase://", "").split("/", 1)
+        bucket, path = parts[0], parts[1]
+        client = get_supabase_client()
+        return client.storage.from_(bucket).download(path)
+    else:
+        with open(storage_path, "rb") as f:
+            return f.read()
+
 def remove_file_blob(storage_path: str) -> None:
-    path = Path(storage_path)
-    if path.exists():
-        path.unlink()
+    if storage_path.startswith("supabase://"):
+        parts = storage_path.replace("supabase://", "").split("/", 1)
+        bucket, path = parts[0], parts[1]
+        try:
+            client = get_supabase_client()
+            client.storage.from_(bucket).remove([path])
+        except:
+            pass
+    else:
+        path = Path(storage_path)
+        if path.exists():
+            path.unlink()
 
 
 
