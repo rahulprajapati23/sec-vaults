@@ -37,6 +37,8 @@ class Settings:
     smtp_password: str
     smtp_sender: str
     smtp_starttls: bool
+    email_provider: str
+    sendgrid_api_key: str
     admin_alert_emails: tuple[str, ...]
     admin_emails: tuple[str, ...]
     geolocation_enabled: bool
@@ -131,6 +133,8 @@ def get_settings() -> Settings:
         smtp_password=os.getenv("SMTP_PASSWORD", "").strip().replace(" ", ""),
         smtp_sender=os.getenv("SMTP_SENDER", "").strip(),
         smtp_starttls=_to_bool(os.getenv("SMTP_STARTTLS", "true"), True),
+        email_provider=os.getenv("EMAIL_PROVIDER", "sendgrid").strip().lower(),
+        sendgrid_api_key=os.getenv("SENDGRID_API_KEY", "").strip(),
         admin_alert_emails=_parse_csv(os.getenv("ADMIN_ALERT_EMAILS", "")),
         admin_emails=tuple(email.lower() for email in _parse_csv(os.getenv("ADMIN_EMAILS", ""))),
         geolocation_enabled=_to_bool(os.getenv("GEOLOCATION_ENABLED", "false"), False),

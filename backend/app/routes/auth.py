@@ -10,8 +10,13 @@ from ..schemas import LoginRequest, UserOut
 from ..security import create_access_token, verify_password
 from ..services.audit import get_logger
 from ..services.files import get_user_by_email
+from ..services.email import send_otp_email, test_email_connection
 from ..utils.response import success_response, error_response
 from ..deps import require_current_user
+
+import random
+import time
+from ..security import hash_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = get_logger()
@@ -61,16 +66,15 @@ def logout():
     return response
 
 # --- Registration Logic ---
-import random
-import time
-import smtplib
-from email.mime.text import MIMEText
-from ..security import hash_password
-
 OTP_STORE = {}
 
 @router.post("/email-otp-register")
 def request_otp(email: str = Form(...)):
+    """
+    Request OTP for email-based registration.
+    Sends OTP via SendGrid (works on Render free tier).
+    Falls back to logging if email service unavailable.
+    """
     email = email.lower().strip()
     with get_db() as conn:
         user = get_user_by_email(conn, email)
@@ -80,32 +84,30 @@ def request_otp(email: str = Form(...)):
     otp = str(random.randint(100000, 999999))
     OTP_STORE[email] = {
         "otp": otp,
-        "expires": time.time() + 300 # 5 minutes
+        "expires": time.time() + 300  # 5 minutes
     }
     
-    settings = get_settings()
-    if settings.smtp_enabled:
-        msg = MIMEText(f"Your SecureVault verification code is: {otp}")
-        msg["Subject"] = "SecureVault Registration Verification"
-        msg["From"] = settings.smtp_sender
-        msg["To"] = email
-        try:
-            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
-                server.ehlo()
-                if settings.smtp_starttls:
-                    server.starttls()
-                    server.ehlo()
-                server.login(settings.smtp_user, settings.smtp_password)
-                server.send_message(msg)
-                logger.info("OTP email sent to %s", email)
-        except Exception as e:
-            logger.error("Failed to send OTP email: %s", e)
-            # Don't fail if SMTP fails - still allow registration with OTP in logs
-            logger.warning("OTP for %s: %s (fallback logging)", email, otp)
-    else:
-        logger.warning("SMTP disabled. OTP for %s: %s", email, otp)
-        
-    return success_response({"message": "OTP sent"})
+    # Attempt to send email
+    email_sent = send_otp_email(email, otp)
+    
+    if not email_sent:
+        # Log for debugging (in production, email should succeed)
+        logger.warning("[OTP DEBUG] OTP for %s: %s", email, otp)
+    
+    return success_response({
+        "message": "OTP sent to your email",
+        "email": email
+    })
+
+@router.get("/test-email")
+def test_email():
+    """
+    Diagnostic endpoint to test email configuration.
+    Returns status of email service connectivity.
+    """
+    result = test_email_connection()
+    status_code = 200 if result["status"] == "connected" else 503
+    return JSONResponse(content=success_response(result), status_code=status_code)
 
 @router.post("/verify-otp-register")
 def verify_otp_register(email: str = Form(...), otp: str = Form(...), password: str = Form(...)):
