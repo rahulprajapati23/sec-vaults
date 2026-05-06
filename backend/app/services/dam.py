@@ -38,5 +38,43 @@ async def _stream_worker_loop() -> None:
             logger.error("DAM worker error: %s", e)
 
 def record_event(**kwargs) -> dict[str, Any]:
-    # Simplified record_event
-    return {"status": "recorded"}
+    event_id = kwargs.get("event_id") or str(uuid.uuid4())
+    payload = {
+        "event_id": event_id,
+        "event_type": kwargs.get("event_type", "system"),
+        "severity": kwargs.get("severity", "low"),
+        "actor_user_id": kwargs.get("actor_user_id"),
+        "actor_email": kwargs.get("actor_email"),
+        "source_ip": kwargs.get("source_ip"),
+        "action": kwargs.get("action", "unknown"),
+        "status": kwargs.get("status", "success"),
+        "message": kwargs.get("message", ""),
+        "metadata_json": json.dumps(kwargs.get("metadata", {}), ensure_ascii=True),
+    }
+
+    try:
+        with get_db() as conn:
+            conn.execute(
+                """
+                INSERT INTO dam_events (
+                    event_id, event_type, severity, actor_user_id, actor_email,
+                    source_ip, action, status, message, metadata_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    payload["event_id"],
+                    payload["event_type"],
+                    payload["severity"],
+                    payload["actor_user_id"],
+                    payload["actor_email"],
+                    payload["source_ip"],
+                    payload["action"],
+                    payload["status"],
+                    payload["message"],
+                    payload["metadata_json"],
+                ),
+            )
+    except Exception:
+        logger.debug("DAM event persistence skipped", exc_info=True)
+
+    return {"status": "recorded", **payload}

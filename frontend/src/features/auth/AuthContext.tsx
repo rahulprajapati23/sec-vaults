@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = () => {
-    api.post('/auth/api-logout').finally(() => {
+    api.post('/auth/logout').finally(() => {
       setUser(null);
     });
   };

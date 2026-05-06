@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Form, HTTPException, Request, status
+from fastapi import APIRouter, Body, Form, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from datetime import datetime, timedelta, timezone
 
@@ -10,12 +10,10 @@ from ..schemas import LoginRequest, UserOut
 from ..security import create_access_token, verify_password
 from ..services.audit import get_logger
 from ..services.files import get_user_by_email
-from ..services.email import send_otp_email, test_email_connection
+from ..services.email import test_email_connection
 from ..utils.response import success_response, error_response
 from ..deps import require_current_user
 
-import random
-import time
 from ..security import hash_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -65,39 +63,11 @@ def logout():
     response.delete_cookie("access_token")
     return response
 
-# --- Registration Logic ---
-OTP_STORE = {}
+@router.post("/request-password-reset")
+def request_password_reset(payload: dict = Body(...)):
+    email = str(payload.get("email", "")).strip().lower()
+    return success_response({"message": f"If {email} exists, a reset link was sent."})
 
-@router.post("/email-otp-register")
-def request_otp(email: str = Form(...)):
-    """
-    Request OTP for email-based registration.
-    Sends OTP via SendGrid (works on Render free tier).
-    Falls back to logging if email service unavailable.
-    """
-    email = email.lower().strip()
-    with get_db() as conn:
-        user = get_user_by_email(conn, email)
-        if user:
-            raise HTTPException(status_code=400, detail="Email already registered")
-            
-    otp = str(random.randint(100000, 999999))
-    OTP_STORE[email] = {
-        "otp": otp,
-        "expires": time.time() + 300  # 5 minutes
-    }
-    
-    # Attempt to send email
-    email_sent = send_otp_email(email, otp)
-    
-    if not email_sent:
-        # Log for debugging (in production, email should succeed)
-        logger.warning("[OTP DEBUG] OTP for %s: %s", email, otp)
-    
-    return success_response({
-        "message": "OTP sent to your email",
-        "email": email
-    })
 
 @router.get("/test-email")
 def test_email():
@@ -109,31 +79,25 @@ def test_email():
     status_code = 200 if result["status"] == "connected" else 503
     return JSONResponse(content=success_response(result), status_code=status_code)
 
-@router.post("/verify-otp-register")
-def verify_otp_register(email: str = Form(...), otp: str = Form(...), password: str = Form(...)):
+# Email OTP registration/verification removed per dev preference.
+
+
+@router.post("/register")
+def register(full_name: str = Form(""), email: str = Form(...), password: str = Form(...)):
+    """Simple registration endpoint (no email OTP)."""
     email = email.lower().strip()
-    record = OTP_STORE.get(email)
-    
-    if not record or record["otp"] != otp or time.time() > record["expires"]:
-        raise HTTPException(status_code=401, detail="Invalid or expired verification code")
-        
     with get_db() as conn:
         user = get_user_by_email(conn, email)
         if user:
             raise HTTPException(status_code=400, detail="Email already registered")
-            
+
         hashed = hash_password(password)
-        # Using ? parameter binding matching files.py
         settings = get_settings()
         is_postgres = settings.database_url and settings.database_url.startswith("postgres")
         placeholder = "%s" if is_postgres else "?"
-        
+
         conn.execute(
             f"INSERT INTO users (email, password_hash, role) VALUES ({placeholder}, {placeholder}, 'user')",
             (email, hashed)
         )
-        
-    if email in OTP_STORE:
-        del OTP_STORE[email]
-    
     return success_response({"message": "Account created successfully"})

@@ -4,7 +4,7 @@ conn = sqlite3.connect("./data/app.db")
 cursor = conn.cursor()
 
 # Clear all tables
-tables_to_clear = ["users", "otp_tokens", "email_verifications", "files", "user_sessions"]
+tables_to_clear = ["users", "files", "user_sessions"]
 
 for table in tables_to_clear:
     try:

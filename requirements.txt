@@ -9,6 +9,6 @@ email-validator==2.2.0
 qrcode[pil]==7.4.2
 psycopg[binary]==3.2.1  <-- [ALWAYS USE BINARY]
 httpx>=0.26,<0.28
-python-keycloak==4.3.0
+httpx>=0.26,<0.28
 supabase==2.10.0
 jinja2==3.1.4
