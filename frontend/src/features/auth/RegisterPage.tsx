@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   EyeIcon, EyeSlashIcon, ShieldCheckIcon,
-  CheckCircleIcon, XCircleIcon, EnvelopeIcon
+  CheckCircleIcon, XCircleIcon
 } from '@heroicons/react/24/outline';
 import { api } from '../../services/api';
 
