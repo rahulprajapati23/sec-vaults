@@ -58,8 +58,8 @@ const RegisterPage = () => {
     return errs;
   };
 
-  // Step 1 → send OTP to email
-  const handleRequestOtp = async (e: React.FormEvent) => {
+  // Step 1 → create account
+  const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError('');
     const errs = validateDetails();
@@ -72,7 +72,7 @@ const RegisterPage = () => {
       form.append('email', email.trim().toLowerCase());
       form.append('password', password);
       form.append('full_name', fullName.trim());
-      // Backend endpoint: POST /auth/register (no OTP)
+      // Backend endpoint: POST /auth/register
       await api.post('/auth/register', form, {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       });
@@ -84,7 +84,7 @@ const RegisterPage = () => {
       if (status === 400) {
         setServerError('This email is already registered. Please sign in.');
       } else {
-        setServerError('Failed to send verification code. Try again.');
+        setServerError('Failed to create account. Try again.');
       }
     } finally {
       setIsLoading(false);
@@ -111,7 +111,7 @@ const RegisterPage = () => {
     );
   }
 
-  /* OTP step removed: registration is a single-step flow now */
+  /* Registration is a single-step flow now */
 
   /* ─── STEP 1: DETAILS ─────────────────────────────────────── */
   return (
@@ -138,7 +138,7 @@ const RegisterPage = () => {
           <div className="flex-1 h-px bg-slate-700 mx-2"></div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs text-slate-400 font-bold">2</div>
-            <span className="text-sm text-slate-500">Verify email</span>
+            <span className="text-sm text-slate-500">Create account</span>
           </div>
         </div>
 
@@ -148,7 +148,7 @@ const RegisterPage = () => {
           </div>
         )}
 
-        <form onSubmit={handleRequestOtp} className="space-y-4" noValidate>
+        <form onSubmit={handleCreateAccount} className="space-y-4" noValidate>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1.5">Full Name *</label>
             <input

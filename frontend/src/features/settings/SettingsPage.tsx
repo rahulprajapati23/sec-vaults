@@ -200,7 +200,7 @@ export const SettingsPage = () => {
               <SettingRow label="Active Session Timeout" description="Auto-logout after this period of inactivity">
                 <NumberInput value={config.sessionTimeoutHours} onChange={v => set('sessionTimeoutHours', v)} min={1} max={168} unit="hours" />
               </SettingRow>
-              <SettingRow label="Multi-Factor Authentication" description="Require OTP email verification on every login" badge="2FA">
+              <SettingRow label="Multi-Factor Authentication" description="Require extra verification on every login" badge="2FA">
                 <Toggle checked={config.mfaEnabled} onChange={v => set('mfaEnabled', v)} />
               </SettingRow>
             </Section>
@@ -227,7 +227,7 @@ export const SettingsPage = () => {
             </Section>
 
             <Section title="Identity & Authentication" icon="🔑">
-              <SettingRow label="Multi-Factor Authentication" description="Send OTP to email on every login attempt" badge="RECOMMENDED">
+              <SettingRow label="Multi-Factor Authentication" description="Require extra verification on every login attempt" badge="RECOMMENDED">
                 <Toggle checked={config.mfaEnabled} onChange={v => set('mfaEnabled', v)} />
               </SettingRow>
               <SettingRow label="Geolocation Tracking" description="Track country/city per login event for anomaly detection">
@@ -353,7 +353,7 @@ export const SettingsPage = () => {
                 </p>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {smtpEnabled
-                    ? 'Email alerts, OTP emails, and notifications are fully operational.'
+                    ? 'Email alerts and notifications are fully operational.'
                     : 'Set SMTP_ENABLED=true in your .env file to enable email delivery.'}
                 </p>
               </div>
