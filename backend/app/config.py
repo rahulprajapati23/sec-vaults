@@ -1,5 +1,6 @@
 from __future__ import annotations
 import base64
+import hashlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,11 +66,21 @@ class Settings:
     cookie_secure: bool
     cookie_samesite: str
 
-def _load_master_key(value: str) -> bytes:
+def _load_master_key(value: str, secret_key: str) -> bytes:
+    raw_value = (value or "").strip()
+    # Keep the app bootable when a template placeholder is accidentally deployed.
+    if raw_value in {"your-32-byte-base64-encoded-key", "your-32-byte-base64-encoded-key-here"}:
+        return hashlib.sha256(secret_key.encode("utf-8")).digest()
+
+    # Accept urlsafe base64 values even if padding is omitted by the deploy UI.
+    padded_value = raw_value + ("=" * (-len(raw_value) % 4))
     try:
-        decoded = base64.urlsafe_b64decode(value.encode("utf-8"))
+        decoded = base64.urlsafe_b64decode(padded_value.encode("utf-8"))
     except Exception as exc:
-        raise ValueError("MASTER_KEY must be a urlsafe base64 encoded 32-byte key") from exc
+        raise ValueError(
+            "MASTER_KEY must be a urlsafe base64 encoded 32-byte key. "
+            "Generate one with: python -c \"import secrets,base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())\""
+        ) from exc
     if len(decoded) != 32:
         raise ValueError("MASTER_KEY must decode to exactly 32 bytes")
     return decoded
@@ -110,7 +121,7 @@ def get_settings() -> Settings:
         secret_key=secret_key,
         jwt_algorithm=os.getenv("JWT_ALGORITHM", "HS256"),
         access_token_expire_minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440")),
-        master_key=_load_master_key(master_key_value),
+        master_key=_load_master_key(master_key_value, secret_key),
         database_url=os.getenv("DATABASE_URL", "").strip(),
         database_path=(root / os.getenv("DATABASE_PATH", "data/app.db")).resolve(),
         storage_path=(root / os.getenv("STORAGE_PATH", "data/storage")).resolve(),
