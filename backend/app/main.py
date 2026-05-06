@@ -97,7 +97,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     ))
 
 # Static Files
-app.mount("/static", StaticFiles(directory=str(Path(__file__).resolve().parent / "static")), name="static")
+static_dir = Path(__file__).resolve().parent / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # Routes
 include_all_routers(app)
