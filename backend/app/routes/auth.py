@@ -92,9 +92,8 @@ def register(full_name: str = Form(""), email: str = Form(...), password: str = 
             raise HTTPException(status_code=400, detail="Email already registered")
 
         hashed = hash_password(password)
-        settings = get_settings()
-        is_postgres = settings.database_url and settings.database_url.startswith("postgres")
-        placeholder = "%s" if is_postgres else "?"
+        is_sqlite = conn.__class__.__module__.startswith("sqlite3")
+        placeholder = "?" if is_sqlite else "%s"
 
         conn.execute(
             f"INSERT INTO users (email, password_hash, role) VALUES ({placeholder}, {placeholder}, 'user')",
