@@ -13,7 +13,6 @@ export default defineConfig({
       '/dam': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
       '/mfa': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
       '/analytics': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
-      '/share': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
       '/iam': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
       '/ws': { target: 'ws://127.0.0.1:8000', changeOrigin: true, secure: false, ws: true },
       '/system': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },

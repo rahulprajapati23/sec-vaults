@@ -37,6 +37,7 @@ def require_roles(request: Request, allowed_roles: set[str]):
     user = require_current_user(request)
     role = normalize_role(user.get("role"))
     if role not in allowed_roles:
+        print(f"DEBUG: Access denied for {user.get('email')}. Role: {role}, Required: {allowed_roles}")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
     return user
 

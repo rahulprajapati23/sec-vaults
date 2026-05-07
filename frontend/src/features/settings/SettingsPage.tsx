@@ -8,6 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Toggle, SettingRow, Section, NumberInput, TagInput, SaveBar } from './SettingsComponents';
 import { LogsReportsTab } from './LogsReportsTab';
+import { logEvent } from '../../services/logger';
 
 
 type Tab = 'profile' | 'security' | 'access' | 'notifications' | 'smtp' | 'logs' | 'advanced';
@@ -104,9 +105,23 @@ export const SettingsPage = () => {
   const smtpAdminEmails = smtpStatus?.admin_alert_emails ?? [];
 
   useEffect(() => {
+    // 1. Fetch SMTP status
     api.get('/system/smtp-status')
       .then(r => setSmtpStatus(r.data))
       .catch(() => setSmtpStatus({ smtp_enabled: false, smtp_host: null }));
+
+    // 2. Fetch System Settings
+    api.get('/system/settings')
+      .then(r => {
+        if (Object.keys(r.data).length > 0) {
+          const merged = { ...DEFAULT_CONFIG, ...r.data };
+          setConfig(merged);
+          setSaved(merged);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load settings:', err);
+      });
   }, []);
 
   const handleSmtpTest = async () => {
@@ -128,18 +143,25 @@ export const SettingsPage = () => {
   const isDirty = JSON.stringify(config) !== JSON.stringify(saved);
   const set = useCallback(<K extends keyof Config>(key: K, value: Config[K]) => {
     setConfig(prev => ({ ...prev, [key]: value }));
+    logEvent('setting_changed_draft', `User modified draft setting: ${key}`, { key, value });
   }, []);
 
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Store in localStorage (backend integration ready)
-      localStorage.setItem('vault_settings', JSON.stringify(config));
-      await new Promise(r => setTimeout(r, 600));
+      // 1. Save to backend
+      await api.post('/system/settings', config);
+      
+      // 2. Update local state
       setSaved(config);
       setToast('Settings saved successfully');
+      logEvent('settings_saved', 'User saved system settings to backend', { config });
       setTimeout(() => setToast(''), 3000);
+    } catch (err: any) {
+      console.error('Failed to save settings:', err);
+      const msg = err.response?.data?.detail || 'Failed to save settings';
+      alert(msg);
     } finally {
       setIsSaving(false);
     }

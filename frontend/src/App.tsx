@@ -10,6 +10,9 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import DashboardPage from './pages/DashboardPage';
+import SharePage from './features/share/SharePage';
+import { useEffect } from 'react';
+import { initGlobalLogger } from './services/logger';
 
 
 const queryClient = new QueryClient();
@@ -24,6 +27,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 
 function App() {
+  useEffect(() => {
+    initGlobalLogger();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -32,6 +39,7 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/share/:token" element={<SharePage />} />
             <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
               <Route index element={<DashboardPage />} />
               <Route path="vault" element={<VaultPage />} />

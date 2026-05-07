@@ -27,7 +27,7 @@ export const LogsReportsTab = ({ config, set }: Props) => {
     unauthorized_access: number;
     malware_detected: number;
     unique_actors: number;
-    top_attacker_ips?: [string, number][];
+    top_attacker_ips?: { source_ip: string; count: number }[];
   }
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,6 +65,23 @@ export const LogsReportsTab = ({ config, set }: Props) => {
       setSendResult(r => ({ ...r, [type]: { ok: false, msg: detail || 'Failed to send report' } }));
     } finally {
       setSending(s => ({ ...s, [type]: false }));
+    }
+  };
+
+  const exportEvents = async () => {
+    try {
+      const res = await api.get('/dam/events?limit=500');
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'dam-events.json';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      // no-op, keep UI simple for now
     }
   };
 
@@ -113,10 +130,10 @@ export const LogsReportsTab = ({ config, set }: Props) => {
       {topAttackerIps.length > 0 && (
         <Section title="Top Suspicious IPs" icon="⚠️">
           <div className="py-3 space-y-2">
-            {topAttackerIps.map(([ip, count]: [string, number]) => (
-              <div key={ip} className="flex items-center justify-between">
-                <span className="text-sm font-mono text-slate-300">{ip}</span>
-                <span className="text-xs font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded-full">{count}× failed</span>
+            {topAttackerIps.map((item: any) => (
+              <div key={item.source_ip} className="flex items-center justify-between">
+                <span className="text-sm font-mono text-slate-300">{item.source_ip}</span>
+                <span className="text-xs font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded-full">{item.count}× failed</span>
               </div>
             ))}
           </div>
@@ -169,7 +186,7 @@ export const LogsReportsTab = ({ config, set }: Props) => {
         </SettingRow>
         <div className="py-4 flex flex-wrap gap-3">
           <button
-            onClick={() => window.open('/dam/events?limit=500', '_blank')}
+            onClick={exportEvents}
             className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-sm rounded-lg transition-colors"
           >
             📄 Export JSON (500 events)

@@ -1,6 +1,26 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# Environment Variables
 .env
+.env.*
+backend/.env
+frontend/.env
+
+# Local Database & Logs
 data/
 logs/
+*.db
+*.sqlite3
+
+# Node / Frontend
+node_modules/
+dist/
+.DS_Store
+
+# Fix scripts (Optional: keep them if you want them on GitHub)
+# fix_admin.py
+# fix_smtp.py

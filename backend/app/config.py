@@ -62,6 +62,7 @@ class Settings:
     keycloak_admin_client_id: str
     keycloak_admin_client_secret: str
     virustotal_api_key: str
+    frontend_app_url: str
     cors_allow_origins: tuple[str, ...]
     cookie_secure: bool
     cookie_samesite: str
@@ -86,15 +87,16 @@ def _load_master_key(value: str, secret_key: str) -> bytes:
     return decoded
 
 def _load_dotenv(root: Path) -> None:
-    env_path = root / ".env"
-    if not env_path.exists():
-        return
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
+    # Load both backend/.env and repo-root .env so local dev picks up shared secrets.
+    for env_path in (root / ".env", root.parent / ".env"):
+        if not env_path.exists():
             continue
-        key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 def _to_bool(value: str, default: bool) -> bool:
     if value is None:
@@ -168,6 +170,7 @@ def get_settings() -> Settings:
         keycloak_admin_client_id=os.getenv("KEYCLOAK_ADMIN_CLIENT_ID", "").strip(),
         keycloak_admin_client_secret=os.getenv("KEYCLOAK_ADMIN_CLIENT_SECRET", "").strip(),
         virustotal_api_key=os.getenv("VIRUSTOTAL_API_KEY", "").strip(),
+        frontend_app_url=os.getenv("FRONTEND_APP_URL", "http://localhost:5174").strip().rstrip("/"),
         cors_allow_origins=_parse_csv(os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")),
         cookie_secure=_to_bool(os.getenv("COOKIE_SECURE", "false"), False),
         cookie_samesite=os.getenv("COOKIE_SAMESITE", "lax").strip().lower(),
